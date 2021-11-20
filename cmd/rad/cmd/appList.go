@@ -16,8 +16,8 @@ import (
 // appListCmd command to list  applications deployed in the resource group
 var appListCmd = &cobra.Command{
 	Use:   "list",
-	Short: "Lists RAD applications",
-	Long:  "Lists RAD applications deployed in the resource group associated with the default environment",
+	Short: "Lists Radius applications",
+	Long:  "Lists Radius applications deployed in the resource group associated with the default environment",
 	Args:  cobra.ExactArgs(0),
 	RunE:  listApplications,
 }

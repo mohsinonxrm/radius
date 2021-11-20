@@ -16,8 +16,8 @@ import (
 // appShowCmd command to show properties of a  application
 var appShowCmd = &cobra.Command{
 	Use:   "show",
-	Short: "Show RAD application details",
-	Long:  "Show RAD application details",
+	Short: "Show Radius application details",
+	Long:  "Show Radius application details",
 	RunE:  showApplication,
 }
 

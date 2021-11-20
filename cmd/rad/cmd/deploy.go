@@ -25,8 +25,8 @@ import (
 // deployCmd represents the deploy command
 var deployCmd = &cobra.Command{
 	Use:   "deploy [app.bicep]",
-	Short: "Deploy a RAD application",
-	Long: `Deploy a RAD application
+	Short: "Deploy Radius application",
+	Long: `Deploy Radius application
 
 The deploy command compiles a .bicep file and deploys it to your default environment (unless otherwise specified).
 	

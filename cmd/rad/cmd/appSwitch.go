@@ -19,8 +19,8 @@ import (
 // appSwitchCmd command to switch applications
 var appSwitchCmd = &cobra.Command{
 	Use:   "switch",
-	Short: "Switch the default RAD application",
-	Long:  "Switches the default RAD application",
+	Short: "Switch the default Radius application",
+	Long:  "Switches the default Radius application",
 	RunE:  switchApplications,
 }
 

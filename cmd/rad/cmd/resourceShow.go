@@ -16,7 +16,7 @@ import (
 // resourceShowCmd command to show details of a resource
 var resourceShowCmd = &cobra.Command{
 	Use:   "show",
-	Short: "Show RAD resource details",
+	Short: "Show Radius resource details",
 	Long:  "Show details of the specified Radius resource",
 	RunE:  showResource,
 }

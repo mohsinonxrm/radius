@@ -24,8 +24,8 @@ import (
 // RootCmd is the root command of the rad CLI. This is exported so we can generate docs for it.
 var RootCmd = &cobra.Command{
 	Use:           "rad",
-	Short:         "Project Radius CLI",
-	Long:          `Project Radius CLI`,
+	Short:         "Radius CLI",
+	Long:          `Radius CLI to deploy and manage Radius applications`,
 	SilenceErrors: true,
 	SilenceUsage:  true,
 }

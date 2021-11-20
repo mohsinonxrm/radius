@@ -21,8 +21,8 @@ import (
 // appDeleteCmd command to delete an application
 var appDeleteCmd = &cobra.Command{
 	Use:   "delete",
-	Short: "Delete RAD application",
-	Long:  "Delete the specified RAD application deployed in the default environment",
+	Short: "Delete Radius application",
+	Long:  "Delete the specified Radius application deployed in the default environment",
 	RunE:  deleteApplication,
 }
 
