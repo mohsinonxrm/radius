@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/meta"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	watchk8s "k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery/cached/memory"
 	"k8s.io/client-go/dynamic"
 	"k8s.io/client-go/kubernetes"
@@ -32,9 +33,9 @@ import (
 )
 
 const (
-	IntervalForDeploymentCreation = 10 * time.Second
-	IntervalForPodShutdown        = 10 * time.Second
-	IntervalForResourceCreation   = 5 * time.Second
+	IntervalForDeploymentCreation = 3 * time.Second
+	IntervalForPodShutdown        = 3 * time.Second
+	IntervalForResourceCreation   = 3 * time.Second
 
 	// We want to make sure to produce some output any time we're in a watch
 	// otherwise it's hard to know if it got stuck.
@@ -511,7 +512,17 @@ func (pm PodMonitor) ValidateRunning(ctx context.Context, t *testing.T) {
 
 		case event := <-watch.ResultChan():
 			pod, ok := event.Object.(*corev1.Pod)
-			require.Truef(t, ok, "object %T is not a pod", event.Object)
+			if !ok {
+				// Check the status if there is a failure.
+				// Errors usually have a status as the object type
+				if event.Type == watchk8s.Error {
+					status, ok := event.Object.(*metav1.Status)
+					if ok {
+						t.Errorf("pod watch error with status reason: %s, message: %s", status.Reason, status.Message)
+					}
+				}
+				require.Truef(t, ok, "object %T is not a pod", event.Object)
+			}
 
 			if pod.Status.Phase == corev1.PodRunning {
 				t.Logf("success! pod %v has status: %v", pod.Name, pod.Status)

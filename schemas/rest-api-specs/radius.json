@@ -87,6 +87,29 @@
       "title": "Entity Resource",
       "x-ms-client-name": "AzureEntityResource"
     },
+    "AzureFileShareVolumeProperties": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/VolumeProperties"
+        }
+      ],
+      "properties": {
+        "managed": {
+          "description": "Indicates if the resource is Radius-managed. If false, a Resource must be specified",
+          "type": "boolean"
+        },
+        "resource": {
+          "description": "The ID of the user-managed volume to use for this component",
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object",
+      "x-ms-discriminator-value": "azure.com.fileshare"
+    },
     "AzureKeyVaultComponentList": {
       "description": "List of azure.com.KeyVaultComponent resources.",
       "properties": {
@@ -145,6 +168,50 @@
       ],
       "type": "object",
       "x-ms-azure-resource": true
+    },
+    "AzureKeyVaultVolumeProperties": {
+      "additionalProperties": false,
+      "allOf": [
+        {
+          "$ref": "#/definitions/VolumeProperties"
+        }
+      ],
+      "properties": {
+        "certificates": {
+          "additionalProperties": {
+            "$ref": "#/definitions/CertificateObjectProperties"
+          },
+          "description": "The KeyVault certificates that this volume exposes",
+          "type": "object"
+        },
+        "keys": {
+          "additionalProperties": {
+            "$ref": "#/definitions/KeyObjectProperties"
+          },
+          "description": "The KeyVault keys that this volume exposes",
+          "type": "object"
+        },
+        "managed": {
+          "description": "Indicates if the resource is Radius-managed. If false, a Resource must be specified",
+          "type": "boolean"
+        },
+        "resource": {
+          "description": "The ID of the user-managed keyvault to use for this volume component",
+          "type": "string"
+        },
+        "secrets": {
+          "additionalProperties": {
+            "$ref": "#/definitions/SecretObjectProperties"
+          },
+          "description": "The KeyVault secrets that this volume exposes",
+          "type": "object"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "type": "object",
+      "x-ms-discriminator-value": "azure.com.keyvault"
     },
     "AzureServiceBusComponentList": {
       "description": "List of azure.com.ServiceBusQueueComponent resources.",
@@ -227,6 +294,51 @@
           "description": "Status of the component"
         }
       },
+      "type": "object"
+    },
+    "CertificateObjectProperties": {
+      "properties": {
+        "encoding": {
+          "default": "utf-8",
+          "description": "Encoding format. Default utf-8",
+          "enum": [
+            "utf-8",
+            "hex",
+            "base64"
+          ],
+          "type": "string"
+        },
+        "format": {
+          "default": "pem",
+          "description": "Certificate format. Default pem",
+          "enum": [
+            "pem",
+            "pfx"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "The name of the certificate",
+          "type": "string"
+        },
+        "value": {
+          "description": "Certificate object to be downloaded - the certificate itself, private key or public key of the certificate",
+          "enum": [
+            "certificate",
+            "publickey",
+            "privatekey"
+          ],
+          "type": "string"
+        },
+        "version": {
+          "description": "Certificate version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name",
+        "value"
+      ],
       "type": "object"
     },
     "CheckNameAvailabilityRequest": {
@@ -409,6 +521,7 @@
         "kind": {
           "description": "The kind of connection",
           "enum": [
+            "azure",
             "azure.com/KeyVault",
             "azure.com/ServiceBusQueue",
             "dapr.io/DaprHttp",
@@ -423,11 +536,22 @@
           ],
           "type": "string"
         },
+        "role": {
+          "description": "RBAC permissions to be assigned on the source resource",
+          "items": {
+            "type": "string"
+          },
+          "type": "array"
+        },
         "source": {
           "description": "The source of the connection",
           "type": "string"
         }
       },
+      "required": [
+        "kind",
+        "source"
+      ],
       "type": "object"
     },
     "ContainerPort": {
@@ -1069,6 +1193,22 @@
         }
       }
     },
+    "KeyObjectProperties": {
+      "properties": {
+        "name": {
+          "description": "The name of the key",
+          "type": "string"
+        },
+        "version": {
+          "description": "Key version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
     "KeyVaultProperties": {
       "properties": {
         "identity": {
@@ -1176,9 +1316,20 @@
         }
       ],
       "properties": {
+        "host": {
+          "description": "The host name of the MongoDB to which you are connecting",
+          "type": "string"
+        },
         "managed": {
           "description": "Indicates if the resource is Radius-managed. If false, a Resource must be specified",
           "type": "boolean"
+        },
+        "port": {
+          "description": "The port value of the MongoDB to which you are connecting",
+          "example": [
+            27017
+          ],
+          "type": "integer"
         },
         "resource": {
           "description": "The ID of the user-managed DB with Mongo API to use for this Component",
@@ -1186,6 +1337,25 @@
             "account::mongodb.id"
           ],
           "type": "string"
+        },
+        "secrets": {
+          "additionalProperties": false,
+          "description": "Secrets provided by unmanaged resources,",
+          "properties": {
+            "connectionString": {
+              "description": "The connection string used to connect to this DB",
+              "type": "string"
+            },
+            "password": {
+              "description": "The password for this MongoDB instance",
+              "type": "string"
+            },
+            "username": {
+              "description": "The password for this MongoDB instance",
+              "type": "string"
+            }
+          },
+          "type": "object"
         }
       },
       "type": "object"
@@ -1738,6 +1908,32 @@
       },
       "type": "object"
     },
+    "SecretObjectProperties": {
+      "properties": {
+        "encoding": {
+          "default": "utf-8",
+          "description": "Encoding format. Default utf-8",
+          "enum": [
+            "utf-8",
+            "hex",
+            "base64"
+          ],
+          "type": "string"
+        },
+        "name": {
+          "description": "The name of the secret",
+          "type": "string"
+        },
+        "version": {
+          "description": "Secret version",
+          "type": "string"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "type": "object"
+    },
     "Sku": {
       "description": "The resource model definition representing SKU",
       "properties": {
@@ -1878,20 +2074,10 @@
           "$ref": "#/definitions/BasicComponentProperties"
         }
       ],
+      "discriminator": "kind",
       "properties": {
         "kind": {
-          "description": "The kind of volume component",
-          "enum": [
-            "azure.com.fileshare"
-          ],
-          "type": "string"
-        },
-        "managed": {
-          "description": "Indicates if the resource is Radius-managed. If false, a Resource must be specified",
-          "type": "boolean"
-        },
-        "resource": {
-          "description": "The ID of the user-managed volume to use for this component",
+          "description": "The VolumeProperties kind",
           "type": "string"
         }
       },
