@@ -81,6 +81,7 @@ func GetArmAuthorizer() (autorest.Authorizer, error) {
 		return auth, nil
 	} else if authMethod == ManagedIdentityAuth {
 		config := auth.NewMSIConfig()
+		config.ClientID = os.Getenv("AZURE_CLIENT_ID")
 		token, err := config.ServicePrincipalToken()
 		if err != nil {
 			return nil, err
