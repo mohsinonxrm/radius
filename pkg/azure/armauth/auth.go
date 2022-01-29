@@ -10,6 +10,7 @@ import (
 	"os"
 
 	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/adal"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 )
 
@@ -116,7 +117,15 @@ func GetArmAuthorizer() (autorest.Authorizer, error) {
 
 // GetAuthMethod returns the authentication method used by the RP
 func GetAuthMethod() string {
-	return ManagedIdentityAuth
+	settings, err := auth.GetSettingsFromEnvironment()
+
+	if err == nil && settings.Values[auth.ClientID] != "" && settings.Values[auth.ClientSecret] != "" {
+		return ServicePrincipalAuth
+	} else if _, err := adal.GetMSIEndpoint(); err == nil {
+		return ManagedIdentityAuth
+	} else {
+		return CliAuth
+	}
 }
 
 // IsServicePrincipalConfigured determines whether a service principal is specifed
