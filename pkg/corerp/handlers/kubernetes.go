@@ -26,7 +26,12 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const defaultResyncInterval = time.Second * 50
+const (
+	DefaultCacheResyncInterval = time.Minute * 10
+	DefaultDeploymentTimeout   = time.Minute * 5
+)
+
+var TestHook bool
 
 func NewKubernetesHandler(client client.Client, clientSet k8s.Interface) ResourceHandler {
 	return &kubernetesHandler{client: client, clientSet: clientSet}
@@ -52,7 +57,7 @@ func (handler *kubernetesHandler) Put(ctx context.Context, resource *outputresou
 		return nil
 	}
 
-	err = handler.client.Patch(ctx, &item, client.Apply, &client.PatchOptions{FieldManager: kubernetes.FieldManager})
+	err = handler.client.Patch(ctx, &item, client.Merge, &client.PatchOptions{FieldManager: kubernetes.FieldManager})
 	if err != nil {
 		return err
 	}
@@ -61,12 +66,21 @@ func (handler *kubernetesHandler) Put(ctx context.Context, resource *outputresou
 		return nil // only checking further the Deployment output resource status
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute) // 5 minute deployment readiness timeout
+	timeout := DefaultDeploymentTimeout
+
+	// Setting the lower limits for testing when TestHook is enabled
+	if TestHook {
+		timeout = time.Second * 5
+	}
+
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
-	readinessCh := make(chan bool)
-	watchErrorCh := make(chan error)
-	handler.watchUntilReady(ctx, &item, readinessCh, watchErrorCh)
+	readinessCh := make(chan bool, 1)
+	watchErrorCh := make(chan error, 1)
+	go func() {
+		handler.watchUntilReady(ctx, &item, readinessCh, watchErrorCh)
+	}()
 
 	select {
 	case <-ctx.Done():
@@ -144,7 +158,7 @@ func (handler *kubernetesHandler) PatchNamespace(ctx context.Context, namespace 
 		},
 	}
 
-	err := handler.client.Patch(ctx, ns, client.Apply, &client.PatchOptions{FieldManager: kubernetes.FieldManager})
+	err := handler.client.Patch(ctx, ns, client.Merge, &client.PatchOptions{FieldManager: kubernetes.FieldManager})
 	if err != nil {
 		// we consider this fatal - without a namespace we won't be able to apply anything else
 		return fmt.Errorf("error applying namespace: %w", err)
@@ -188,7 +202,7 @@ func convertToUnstructured(resource outputresource.OutputResource) (unstructured
 }
 
 func (handler *kubernetesHandler) watchUntilReady(ctx context.Context, item client.Object, readinessCh chan<- bool, watchErrorCh chan<- error) {
-	informerFactory := informers.NewSharedInformerFactoryWithOptions(handler.clientSet, defaultResyncInterval, informers.WithNamespace(item.GetNamespace()))
+	informerFactory := informers.NewSharedInformerFactoryWithOptions(handler.clientSet, DefaultCacheResyncInterval, informers.WithNamespace(item.GetNamespace()))
 
 	deploymentInformer := informerFactory.Apps().V1().Deployments().Informer()
 	handlers := cache.ResourceEventHandlerFuncs{
