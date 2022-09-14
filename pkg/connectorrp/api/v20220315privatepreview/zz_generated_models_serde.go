@@ -1720,7 +1720,7 @@ func (r *RabbitMQSecrets) UnmarshalJSON(data []byte) error {
 func (r Recipe) MarshalJSON() ([]byte, error) {
 	objectMap := make(map[string]interface{})
 	populate(objectMap, "name", r.Name)
-	populate(objectMap, "params", r.Params)
+	populate(objectMap, "parameters", r.Parameters)
 	return json.Marshal(objectMap)
 }
 
@@ -1736,8 +1736,8 @@ func (r *Recipe) UnmarshalJSON(data []byte) error {
 		case "name":
 				err = unpopulate(val, "Name", &r.Name)
 				delete(rawMsg, key)
-		case "params":
-				err = unpopulate(val, "Params", &r.Params)
+		case "parameters":
+				err = unpopulate(val, "Parameters", &r.Parameters)
 				delete(rawMsg, key)
 		}
 		if err != nil {
