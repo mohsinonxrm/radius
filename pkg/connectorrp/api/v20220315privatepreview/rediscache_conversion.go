@@ -6,6 +6,8 @@
 package v20220315privatepreview
 
 import (
+	"reflect"
+
 	"github.com/project-radius/radius/pkg/armrpc/api/conv"
 	v1 "github.com/project-radius/radius/pkg/armrpc/api/v1"
 	"github.com/project-radius/radius/pkg/connectorrp/datamodel"
@@ -15,6 +17,13 @@ import (
 
 // ConvertTo converts from the versioned RedisCache resource to version-agnostic datamodel.
 func (src *RedisCacheResource) ConvertTo() (conv.DataModelInterface, error) {
+	recipe := v1.Recipe{}
+	if src.Properties.Recipe != nil {
+		recipe = v1.Recipe{
+			Name:       to.String(src.Properties.Recipe.Name),
+			Parameters: src.Properties.Recipe.Parameters,
+		}
+	}
 	secrets := datamodel.RedisCacheSecrets{}
 	if src.Properties.Secrets != nil {
 		secrets = datamodel.RedisCacheSecrets{
@@ -41,6 +50,7 @@ func (src *RedisCacheResource) ConvertTo() (conv.DataModelInterface, error) {
 				Host:              to.String(src.Properties.Host),
 				Port:              to.Int32(src.Properties.Port),
 				Username:          to.String(src.Properties.Username),
+				Recipe:            recipe,
 			},
 			Secrets: secrets,
 		},
@@ -53,6 +63,13 @@ func (src *RedisCacheResource) ConvertTo() (conv.DataModelInterface, error) {
 
 // ConvertTo converts from the versioned RedisCacheResponse resource to version-agnostic datamodel.
 func (src *RedisCacheResponseResource) ConvertTo() (conv.DataModelInterface, error) {
+	recipe := v1.Recipe{}
+	if src.Properties.Recipe != nil {
+		recipe = v1.Recipe{
+			Name:       to.String(src.Properties.Recipe.Name),
+			Parameters: src.Properties.Recipe.Parameters,
+		}
+	}
 	converted := &datamodel.RedisCacheResponse{
 		TrackedResource: v1.TrackedResource{
 			ID:       to.String(src.ID),
@@ -71,6 +88,7 @@ func (src *RedisCacheResponseResource) ConvertTo() (conv.DataModelInterface, err
 			Host:              to.String(src.Properties.Host),
 			Port:              to.Int32(src.Properties.Port),
 			Username:          to.String(src.Properties.Username),
+			Recipe:            recipe,
 		},
 		InternalMetadata: v1.InternalMetadata{
 			UpdatedAPIVersion: Version,
@@ -103,6 +121,12 @@ func (dst *RedisCacheResource) ConvertFrom(src conv.DataModelInterface) error {
 		Host:              to.StringPtr(redis.Properties.Host),
 		Port:              to.Int32Ptr(redis.Properties.Port),
 		Username:          to.StringPtr(redis.Properties.Username),
+	}
+	if !(reflect.DeepEqual(redis.Properties.Recipe, v1.Recipe{})) {
+		dst.Properties.Recipe = &Recipe{
+			Name:       to.StringPtr(redis.Properties.Recipe.Name),
+			Parameters: redis.Properties.Recipe.Parameters,
+		}
 	}
 	if (redis.Properties.Secrets != datamodel.RedisCacheSecrets{}) {
 		dst.Properties.Secrets = &RedisCacheSecrets{
@@ -138,6 +162,12 @@ func (dst *RedisCacheResponseResource) ConvertFrom(src conv.DataModelInterface) 
 		Host:              to.StringPtr(redis.Properties.Host),
 		Port:              to.Int32Ptr(redis.Properties.Port),
 		Username:          to.StringPtr(redis.Properties.Username),
+	}
+	if !(reflect.DeepEqual(redis.Properties.Recipe, v1.Recipe{})) {
+		dst.Properties.Recipe = &Recipe{
+			Name:       to.StringPtr(redis.Properties.Recipe.Name),
+			Parameters: redis.Properties.Recipe.Parameters,
+		}
 	}
 	return nil
 }
