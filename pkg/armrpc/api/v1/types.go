@@ -172,10 +172,10 @@ func BuildExternalOutputResources(outputResources []outputresource.OutputResourc
 	return externalOutputResources
 }
 
-// Recipe details to deploy the redis cache
+// Recipe represents deployment specific data to deploy the connector
 type Recipe struct {
-	// Name of the recipe which the redis connector will fetch from the environment metadata
+	// Name of the recipe within the environment to use
 	Name string `json:"name,omitempty"`
-	// Parameters are key value pairs that the developer can pass to overwrite the recipe bicep values
+	// Parameters are key/value parameters to pass into the recipe at deployment
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
