@@ -179,10 +179,3 @@ type Recipe struct {
 	// Parameters are key value pairs that the developer can pass to overwrite the recipe bicep values
 	Parameters map[string]interface{} `json:"parameters,omitempty"`
 }
-
-func BuildRecipePramaeter(recipeProperty map[string]interface{}) map[string]interface{} {
-	if recipeProperty == nil {
-		return make(map[string]interface{})
-	}
-	return recipeProperty
-}
