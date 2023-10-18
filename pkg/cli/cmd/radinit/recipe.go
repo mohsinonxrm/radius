@@ -28,13 +28,31 @@ import (
 	msg_ctrl "github.com/radius-project/radius/pkg/messagingrp/frontend/controller"
 	recipe_types "github.com/radius-project/radius/pkg/recipes"
 	"github.com/radius-project/radius/pkg/to"
+	"github.com/radius-project/radius/pkg/ucp/ucplog"
 	"github.com/radius-project/radius/pkg/version"
 	"oras.land/oras-go/v2/registry/remote"
 )
 
 const (
-	DevRecipesRegistry = "ghcr.io/radius-project"
+	// RecipeRepositoryPrefix is the prefix for the repository path.
+	RecipeRepositoryPrefix = "ghcr.io/radius-project/recipes/local-dev/"
 )
+
+// availableDevRecipes returns the list of available dev recipes.
+//
+// If we want to add a new recipe, we need to add it here.
+func availableDevRecipes() []string {
+	return []string{
+		"mongodatabases",
+		"rediscaches",
+		"sqldatabases",
+		"rabbitmqqueues",
+		"pubsubbrokers",
+		"secretstores",
+		"statestores",
+		"extenders",
+	}
+}
 
 //go:generate mockgen -destination=./mock_devrecipeclient.go -package=radinit -self_package github.com/radius-project/radius/pkg/cli/cmd/radinit github.com/radius-project/radius/pkg/cli/cmd/radinit DevRecipeClient
 type DevRecipeClient interface {
@@ -52,10 +70,7 @@ func NewDevRecipeClient() DevRecipeClient {
 // GetDevRecipes is a function that queries a registry for recipes with a specific tag and returns a map of recipes.
 // If an error occurs, an error is returned.
 func (drc *devRecipeClient) GetDevRecipes(ctx context.Context) (map[string]map[string]corerp.RecipePropertiesClassification, error) {
-	reg, err := remote.NewRegistry(DevRecipesRegistry)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create client to registry %s -  %s", DevRecipesRegistry, err.Error())
-	}
+	logger := ucplog.FromContextOrDiscard(ctx)
 
 	// The tag will be the major.minor version of the release.
 	tag := version.Channel()
@@ -63,54 +78,38 @@ func (drc *devRecipeClient) GetDevRecipes(ctx context.Context) (map[string]map[s
 		tag = "latest"
 	}
 
-	// Temporary solution to get all repositories.
-	// The issue is that if RepositoryListPageSize is not specified the default is 100.
-	// We have 104 repositories in the registry as of 12 Oct 2023. That is why processRepositories
-	// function was being called twice and the second call was overwriting all the recipes.
-	// TODO: Remove this once we have a better solution.
-	reg.RepositoryListPageSize = 1000
-
-	recipes := map[string]map[string]corerp.RecipePropertiesClassification{}
-
-	// if repository has the correct path it should look like: <registryPath>/recipes/<category>/<type>:<tag>
-	// Ex: ghcr.io/radius-project/recipes/local-dev/rediscaches:0.20
-	// The start parameter is set to "radius-rp" because our recipes are after that repository.
-	err = reg.Repositories(ctx, "", func(repos []string) error {
-		// validRepos will contain the repositories that have the requested tag.
-		validRepos := []string{}
-		for _, repo := range repos {
-			r, err := reg.Repository(ctx, repo)
-			if err != nil {
-				continue
-			}
-
-			tagExists := false
-			err = r.Tags(ctx, "", func(tags []string) error {
-				for _, t := range tags {
-					if t == tag {
-						tagExists = true
-						break
-					}
-				}
-				return nil
-			})
-			if err != nil {
-				continue
-			}
-
-			if tagExists {
-				validRepos = append(validRepos, repo)
-			}
+	validRepos := []string{}
+	for _, recipe := range availableDevRecipes() {
+		repoPath := fmt.Sprintf("%s%s", RecipeRepositoryPrefix, recipe)
+		repo, err := remote.NewRepository(repoPath)
+		if err != nil {
+			// This shouldn't cancel the `rad init` flow.
+			logger.Error(err, fmt.Sprintf("failed to create client to repository %s", repoPath))
+			continue
 		}
 
-		recipes = processRepositories(validRepos, tag)
-		return nil
-	})
-	if err != nil {
-		return nil, fmt.Errorf("failed to list recipes available in registry at path  %s -  %s", DevRecipesRegistry, err.Error())
+		// Setting this is not the best way to go.
+		repo.TagListPageSize = 1000
+		tagExists := false
+		err = repo.Tags(ctx, "", func(tags []string) error {
+			for _, t := range tags {
+				if t == tag {
+					tagExists = true
+					break
+				}
+			}
+			return nil
+		})
+		if err != nil {
+			continue
+		}
+
+		if tagExists {
+			validRepos = append(validRepos, repoPath)
+		}
 	}
 
-	return recipes, nil
+	return processRepositories(validRepos, tag), nil
 }
 
 // processRepositories processes the repositories and returns the recipes.
@@ -118,34 +117,27 @@ func processRepositories(repos []string, tag string) map[string]map[string]corer
 	recipes := map[string]map[string]corerp.RecipePropertiesClassification{}
 
 	// We are using the default recipe.
-	name := "default"
+	recipeName := "default"
 
 	for _, repo := range repos {
-		// Skip dev environment recipes.
-		// dev repositories is in the form of ghcr.io/radius-project/dev/recipes/local-dev/secretstores:latest
-		// We should skip the dev repositories.
-		if isDevRepository(repo) {
+		// An example to a normalized resource type is "mongodatabases".
+		// The actual resource type is "Applications.Datastores/mongoDatabases".
+		normalizedResourceType := getNormalizedResourceTypeFromPath(repo)
+		// If the normalized resource type is empty, it means we don't support the repository.
+		if normalizedResourceType == "" {
 			continue
 		}
 
-		resourceType := getResourceTypeFromPath(repo)
-		// If the resource type is empty, it means we don't support the repository.
+		resourceType := getActualResourceType(normalizedResourceType)
+		// If the actual resource type is empty, it means we don't support the resource type.
 		if resourceType == "" {
 			continue
 		}
 
-		portableResourceType := getPortableResourceType(resourceType)
-		// If the PortableResource type is empty, it means we don't support the resource type.
-		if portableResourceType == "" {
-			continue
-		}
-
-		repoPath := DevRecipesRegistry + "/" + repo
-
-		recipes[portableResourceType] = map[string]corerp.RecipePropertiesClassification{
-			name: &corerp.BicepRecipeProperties{
+		recipes[resourceType] = map[string]corerp.RecipePropertiesClassification{
+			recipeName: &corerp.BicepRecipeProperties{
 				TemplateKind: to.Ptr(recipe_types.TemplateKindBicep),
-				TemplatePath: to.Ptr(repoPath + ":" + tag),
+				TemplatePath: to.Ptr(repo + ":" + tag),
 			},
 		}
 	}
@@ -153,11 +145,13 @@ func processRepositories(repos []string, tag string) map[string]map[string]corer
 	return recipes
 }
 
-// getResourceTypeFromPath parses the repository path to extract the resource type.
+// getNormalizedResourceTypeFromPath parses the repository path to extract the resource type.
 //
-// Should be of the form: recipes/local-dev/<resourceType>
-func getResourceTypeFromPath(repo string) (resourceType string) {
-	_, after, found := strings.Cut(repo, "recipes/local-dev/")
+// Should be of the form: ghcr.io/radius-project/recipes/local-dev/<resourceType>.
+//
+// An example to a normalized resource type is "mongodatabases".
+func getNormalizedResourceTypeFromPath(repo string) (resourceType string) {
+	_, after, found := strings.Cut(repo, RecipeRepositoryPrefix)
 	if !found || after == "" {
 		return ""
 	}
@@ -169,8 +163,10 @@ func getResourceTypeFromPath(repo string) (resourceType string) {
 	return resourceType
 }
 
-// getPortableResourceType returns the resource type for the given resource.
-func getPortableResourceType(resourceType string) string {
+// getActualResourceType returns the resource type for the given resource.
+//
+// An example to an actual resource type is "Applications.Datastores/mongoDatabases".
+func getActualResourceType(resourceType string) string {
 	switch resourceType {
 	case "mongodatabases":
 		return ds_ctrl.MongoDatabasesResourceType
@@ -191,9 +187,4 @@ func getPortableResourceType(resourceType string) string {
 	default:
 		return ""
 	}
-}
-
-func isDevRepository(repo string) bool {
-	_, found := strings.CutPrefix(repo, "dev/")
-	return found
 }

@@ -17,7 +17,6 @@ limitations under the License.
 package radinit
 
 import (
-	"fmt"
 	reflect "reflect"
 	"testing"
 
@@ -27,9 +26,9 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func Test_getResourceTypeFromPath(t *testing.T) {
+func Test_getNormalizedResourceTypeFromPath(t *testing.T) {
 	t.Run("Successfully returns metadata", func(t *testing.T) {
-		resourceType := getResourceTypeFromPath("recipes/local-dev/rediscaches")
+		resourceType := getNormalizedResourceTypeFromPath("ghcr.io/radius-project/recipes/local-dev/rediscaches")
 		require.Equal(t, "rediscaches", resourceType)
 	})
 
@@ -45,35 +44,35 @@ func Test_getResourceTypeFromPath(t *testing.T) {
 		},
 		{
 			"Valid Path",
-			"recipes/local-dev/rediscaches",
+			"ghcr.io/radius-project/recipes/local-dev/rediscaches",
 			"rediscaches",
 		},
 		{
 			"Invalid Path #1",
-			"recipes////local-dev/rediscaches",
+			"ghcr.io/radius-project/recipes////local-dev/rediscaches",
 			"",
 		},
 		{
 			"Invalid Path #2",
-			"recipes/local-dev////rediscaches",
+			"ghcr.io/radius-project/recipes/local-dev////rediscaches",
 			"",
 		},
 		{
 			"Path With Extra Path Argument",
-			"recipes/local-dev/rediscaches/testing",
+			"ghcr.io/radius-project/recipes/local-dev/rediscaches/testing",
 			"",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			resourceType := getResourceTypeFromPath(tt.repo)
+			resourceType := getNormalizedResourceTypeFromPath(tt.repo)
 			require.Equal(t, tt.expected, resourceType)
 		})
 	}
 }
 
-func Test_getPortableResourceType(t *testing.T) {
+func Test_getActualResourceType(t *testing.T) {
 	tests := []struct {
 		name         string
 		resourceType string
@@ -115,6 +114,11 @@ func Test_getPortableResourceType(t *testing.T) {
 			"Applications.Datastores/sqlDatabases",
 		},
 		{
+			"Extenders",
+			"extenders",
+			"Applications.Core/extenders",
+		},
+		{
 			"Invalid Portable Resource",
 			"unsupported",
 			"",
@@ -122,8 +126,8 @@ func Test_getPortableResourceType(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := getPortableResourceType(tt.resourceType); got != tt.want {
-				t.Errorf("getPortableResourceType() = %v, want %v", got, tt.want)
+			if got := getActualResourceType(tt.resourceType); got != tt.want {
+				t.Errorf("getActualResourceType() = %v, want %v", got, tt.want)
 			}
 		})
 	}
@@ -139,14 +143,14 @@ func Test_processRepositories(t *testing.T) {
 		{
 			"Valid Repository with Redis Cache",
 			[]string{
-				"recipes/local-dev/rediscaches",
+				"ghcr.io/radius-project/recipes/local-dev/rediscaches",
 			},
 			"0.20",
 			map[string]map[string]corerp.RecipePropertiesClassification{
 				"Applications.Datastores/redisCaches": {
 					"default": &corerp.BicepRecipeProperties{
 						TemplateKind: to.Ptr(recipes.TemplateKindBicep),
-						TemplatePath: to.Ptr(fmt.Sprintf("%s/recipes/local-dev/rediscaches:0.20", DevRecipesRegistry)),
+						TemplatePath: to.Ptr("ghcr.io/radius-project/recipes/local-dev/rediscaches:0.20"),
 					},
 				},
 			},
@@ -154,21 +158,21 @@ func Test_processRepositories(t *testing.T) {
 		{
 			"Valid Repository with Redis Cache and Mongo Database",
 			[]string{
-				"recipes/local-dev/rediscaches",
-				"recipes/local-dev/mongodatabases",
+				"ghcr.io/radius-project/recipes/local-dev/rediscaches",
+				"ghcr.io/radius-project/recipes/local-dev/mongodatabases",
 			},
 			"0.20",
 			map[string]map[string]corerp.RecipePropertiesClassification{
 				"Applications.Datastores/redisCaches": {
 					"default": &corerp.BicepRecipeProperties{
 						TemplateKind: to.Ptr(recipes.TemplateKindBicep),
-						TemplatePath: to.Ptr(fmt.Sprintf("%s/recipes/local-dev/rediscaches:0.20", DevRecipesRegistry)),
+						TemplatePath: to.Ptr("ghcr.io/radius-project/recipes/local-dev/rediscaches:0.20"),
 					},
 				},
 				"Applications.Datastores/mongoDatabases": {
 					"default": &corerp.BicepRecipeProperties{
 						TemplateKind: to.Ptr(recipes.TemplateKindBicep),
-						TemplatePath: to.Ptr(fmt.Sprintf("%s/recipes/local-dev/mongodatabases:0.20", DevRecipesRegistry)),
+						TemplatePath: to.Ptr("ghcr.io/radius-project/recipes/local-dev/mongodatabases:0.20"),
 					},
 				},
 			},
@@ -176,24 +180,24 @@ func Test_processRepositories(t *testing.T) {
 		{
 			"Valid Repository with Redis Cache, Mongo Database, and an unsupported type",
 			[]string{
-				"recipes/local-dev/rediscaches",
-				"recipes/local-dev/mongodatabases",
-				"recipes/local-dev/unsupported",
-				"recipes/unsupported/rediscaches",
-				"recipes/unsupported/unsupported",
+				"ghcr.io/radius-project/recipes/local-dev/rediscaches",
+				"ghcr.io/radius-project/recipes/local-dev/mongodatabases",
+				"ghcr.io/radius-project/recipes/local-dev/unsupported",
+				"ghcr.io/radius-project/recipes/unsupported/rediscaches",
+				"ghcr.io/radius-project/recipes/unsupported/unsupported",
 			},
 			"latest",
 			map[string]map[string]corerp.RecipePropertiesClassification{
 				"Applications.Datastores/redisCaches": {
 					"default": &corerp.BicepRecipeProperties{
 						TemplateKind: to.Ptr(recipes.TemplateKindBicep),
-						TemplatePath: to.Ptr(fmt.Sprintf("%s/recipes/local-dev/rediscaches:latest", DevRecipesRegistry)),
+						TemplatePath: to.Ptr("ghcr.io/radius-project/recipes/local-dev/rediscaches:latest"),
 					},
 				},
 				"Applications.Datastores/mongoDatabases": {
 					"default": &corerp.BicepRecipeProperties{
 						TemplateKind: to.Ptr(recipes.TemplateKindBicep),
-						TemplatePath: to.Ptr(fmt.Sprintf("%s/recipes/local-dev/mongodatabases:latest", DevRecipesRegistry)),
+						TemplatePath: to.Ptr("ghcr.io/radius-project/recipes/local-dev/mongodatabases:latest"),
 					},
 				},
 			},
@@ -201,23 +205,23 @@ func Test_processRepositories(t *testing.T) {
 		{
 			"Valid Prod and Dev Repositories with Redis Cache, Mongo Database",
 			[]string{
-				"recipes/local-dev/rediscaches",
-				"recipes/local-dev/mongodatabases",
-				"dev/recipes/local-dev/rediscaches",
-				"dev/recipes/local-dev/mongodatabases",
+				"ghcr.io/radius-project/recipes/local-dev/rediscaches",
+				"ghcr.io/radius-project/recipes/local-dev/mongodatabases",
+				"ghcr.io/radius-project/dev/recipes/local-dev/rediscaches",
+				"ghcr.io/radius-project/dev/recipes/local-dev/mongodatabases",
 			},
 			"latest",
 			map[string]map[string]corerp.RecipePropertiesClassification{
 				"Applications.Datastores/redisCaches": {
 					"default": &corerp.BicepRecipeProperties{
 						TemplateKind: to.Ptr(recipes.TemplateKindBicep),
-						TemplatePath: to.Ptr(fmt.Sprintf("%s/recipes/local-dev/rediscaches:latest", DevRecipesRegistry)),
+						TemplatePath: to.Ptr("ghcr.io/radius-project/recipes/local-dev/rediscaches:latest"),
 					},
 				},
 				"Applications.Datastores/mongoDatabases": {
 					"default": &corerp.BicepRecipeProperties{
 						TemplateKind: to.Ptr(recipes.TemplateKindBicep),
-						TemplatePath: to.Ptr(fmt.Sprintf("%s/recipes/local-dev/mongodatabases:latest", DevRecipesRegistry)),
+						TemplatePath: to.Ptr("ghcr.io/radius-project/recipes/local-dev/mongodatabases:latest"),
 					},
 				},
 			},
@@ -228,32 +232,6 @@ func Test_processRepositories(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			if got := processRepositories(tt.repos, tt.tag); !reflect.DeepEqual(got, tt.want) {
 				t.Errorf("processRepositories() = %v, want %v", got, tt.want)
-			}
-		})
-	}
-}
-
-func Test_isDevRepository(t *testing.T) {
-	tests := []struct {
-		name string
-		repo string
-		want bool
-	}{
-		{
-			"Dev Repository",
-			"dev/recipes/local-dev/rediscaches",
-			true,
-		},
-		{
-			"Prod Repository",
-			"recipes/local-dev/rediscaches",
-			false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := isDevRepository(tt.repo); got != tt.want {
-				t.Errorf("isDevRepository() = %v, want %v", got, tt.want)
 			}
 		})
 	}
